@@ -1,3 +1,3 @@
-module github.com/thycotic/tss-sdk-go
+module github.com/danhale-git/tss-sdk-go
 
 go 1.13
