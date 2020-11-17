@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"strconv"
 )
 
@@ -32,8 +31,7 @@ func (s Server) Secret(id int) (*Secret, error) {
 
 	if data, err := s.accessResource("GET", resource, strconv.Itoa(id), nil); err == nil {
 		if err = json.Unmarshal(data, secret); err != nil {
-			log.Printf("[DEBUG] error parsing response from /%s/%d: %q", resource, id, data)
-			return nil, err
+			return nil, fmt.Errorf("parsing response from /%s/%d: %s", resource, id, err)
 		}
 	} else {
 		return nil, err
@@ -60,10 +58,9 @@ func (s Server) Secret(id int) (*Secret, error) {
 func (s Secret) Field(fieldName string) (string, bool) {
 	for _, field := range s.Fields {
 		if fieldName == field.FieldName || fieldName == field.Slug {
-			log.Printf("[DEBUG] field with name '%s' matches '%s'", field.FieldName, fieldName)
 			return field.ItemValue, true
 		}
 	}
-	log.Printf("[DEBUG] no matching field for name '%s' in secret '%s'", fieldName, s.Name)
+
 	return "", false
 }
