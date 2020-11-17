@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -37,19 +36,24 @@ type Server struct {
 // New returns an initialized Secrets object
 func New(config Configuration) (*Server, error) {
 	if config.ServerURL == "" && config.Tenant == "" || config.ServerURL != "" && config.Tenant != "" {
-		return nil, fmt.Errorf("Either ServerURL or Tenant must be set")
+		return nil, fmt.Errorf("either server url or tenant must be set")
 	}
+
 	if config.TLD == "" {
 		config.TLD = defaultTLD
 	}
+
 	if config.apiPathURI == "" {
 		config.apiPathURI = defaultAPIPathURI
 	}
+
 	config.apiPathURI = strings.Trim(config.apiPathURI, "/")
 	if config.tokenPathURI == "" {
 		config.tokenPathURI = defaultTokenPathURI
 	}
+
 	config.tokenPathURI = strings.Trim(config.tokenPathURI, "/")
+
 	return &Server{config}, nil
 }
 
@@ -80,10 +84,7 @@ func (s Server) accessResource(method, resource, path string, input interface{})
 	switch resource {
 	case "secrets":
 	default:
-		message := "unknown resource"
-
-		log.Printf("[DEBUG] %s: %s", message, resource)
-		return nil, fmt.Errorf(message)
+		return nil, fmt.Errorf("unknown resource '%s'", resource)
 	}
 
 	body := bytes.NewBuffer([]byte{})
@@ -92,23 +93,20 @@ func (s Server) accessResource(method, resource, path string, input interface{})
 		if data, err := json.Marshal(input); err == nil {
 			body = bytes.NewBuffer(data)
 		} else {
-			log.Print("[DEBUG] marshaling the request body to JSON:", err)
-			return nil, err
+			return nil, fmt.Errorf("marshaling request body: %s", err)
 		}
 	}
 
 	req, err := http.NewRequest(method, s.urlFor(resource, path), body)
 
 	if err != nil {
-		log.Printf("[DEBUG] creating req: %s /%s/%s: %s", method, resource, path, err)
-		return nil, err
+		return nil, fmt.Errorf("creating req: %s /%s/%s: %s", method, resource, path, err)
 	}
 
 	accessToken, err := s.getAccessToken()
 
 	if err != nil {
-		log.Print("[DEBUG] error getting accessToken:", err)
-		return nil, err
+		return nil, fmt.Errorf("getting access token: %s", err)
 	}
 
 	req.Header.Add("Authorization", "Bearer "+accessToken)
@@ -118,9 +116,9 @@ func (s Server) accessResource(method, resource, path string, input interface{})
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	log.Printf("[DEBUG] calling %s", req.URL.String())
+	data, res, err := handleResponse((&http.Client{}).Do(req))
 
-	data, _, err := handleResponse((&http.Client{}).Do(req))
+	defer res.Body.Close()
 
 	return data, err
 }
@@ -134,11 +132,15 @@ func (s Server) getAccessToken() (string, error) {
 		"domain":     {s.Domain},
 		"grant_type": {"password"},
 	}.Encode())
-	data, _, err := handleResponse(http.Post(s.urlFor("token", ""), "application/x-www-form-urlencoded", body))
+
+	data, res, err := handleResponse(
+		http.Post(s.urlFor("token", ""), "application/x-www-form-urlencoded", body),
+	)
+
+	defer res.Body.Close()
 
 	if err != nil {
-		log.Print("[DEBUG] grant response error:", err)
-		return "", err
+		return "", fmt.Errorf("handling response for access token request: %s", err)
 	}
 
 	grant := struct {
@@ -149,8 +151,8 @@ func (s Server) getAccessToken() (string, error) {
 	}{}
 
 	if err = json.Unmarshal(data, &grant); err != nil {
-		log.Print("[INFO] parsing grant response:", err)
-		return "", err
+		return "", fmt.Errorf("unmarshaling access token response: %s", err)
 	}
+
 	return grant.AccessToken, nil
 }
