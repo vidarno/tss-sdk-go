@@ -128,12 +128,18 @@ func (s Server) accessResource(method, resource, path string, input interface{})
 // getAccessToken gets an OAuth2 Access Grant and returns the token
 // endpoint and get an accessGrant.
 func (s Server) getAccessToken() (string, error) {
-	body := strings.NewReader(url.Values{
+	params := url.Values{
 		"username":   {s.Credentials.Username},
 		"password":   {s.Credentials.Password},
-		"domain":     {s.Domain},
 		"grant_type": {"password"},
-	}.Encode())
+	}
+
+	if s.Domain != "" {
+		params["domain"] = []string{s.Domain}
+	}
+
+	body := strings.NewReader(params.Encode())
+
 	data, _, err := handleResponse(http.Post(s.urlFor("token", ""), "application/x-www-form-urlencoded", body))
 
 	if err != nil {
