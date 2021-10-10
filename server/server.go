@@ -134,6 +134,7 @@ func (s Server) getAccessToken() (string, error) {
 		"domain":     {s.Domain},
 		"grant_type": {"password"},
 	}.Encode())
+	log.Print("[DEBUG] body:", body)
 	data, _, err := handleResponse(http.Post(s.urlFor("token", ""), "application/x-www-form-urlencoded", body))
 
 	if err != nil {
